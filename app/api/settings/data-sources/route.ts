@@ -12,7 +12,10 @@ export async function GET() {
   const userId = await getCurrentUserId();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const connections = await prisma.dataSourceConnection.findMany({ where: { userId } });
+  const connections = await prisma.dataSourceConnection.findMany({
+    where: { userId },
+    select: { id: true, provider: true, status: true, updatedAt: true },
+  });
   return NextResponse.json(connections);
 }
 
@@ -28,6 +31,7 @@ export async function POST(req: Request) {
     where: { userId_provider: { userId, provider } },
     update: { apiKey: apiKey || null, status: apiKey ? "CONNECTED" : "NOT_CONFIGURED" },
     create: { userId, provider, apiKey: apiKey || null, status: apiKey ? "CONNECTED" : "NOT_CONFIGURED" },
+    select: { id: true, provider: true, status: true, updatedAt: true },
   });
 
   return NextResponse.json(connection);

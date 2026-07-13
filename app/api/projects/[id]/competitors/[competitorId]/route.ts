@@ -10,6 +10,10 @@ export async function DELETE(
   const { error, status } = await requireProjectOwner(id);
   if (error) return NextResponse.json({ error }, { status });
 
-  await prisma.competitor.delete({ where: { id: competitorId } });
+  const { count } = await prisma.competitor.deleteMany({
+    where: { id: competitorId, projectId: id },
+  });
+  if (count === 0) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
   return NextResponse.json({ ok: true });
 }

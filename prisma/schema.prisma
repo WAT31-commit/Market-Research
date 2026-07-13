@@ -1,0 +1,123 @@
+// Prisma schema for the Market Research Platform.
+//
+// Uses SQLite for zero-config local development. To move to production,
+// swap the datasource below for Postgres (e.g. Supabase / Neon):
+//   datasource db {
+//     provider = "postgresql"
+//     url      = env("DATABASE_URL")
+//   }
+// The models below are written to be provider-agnostic (no sqlite-only types),
+// so that swap is the only change required.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String
+  name         String?
+  image        String?
+  createdAt    DateTime  @default(now())
+
+  projects            Project[]
+  dataSourceConnections DataSourceConnection[]
+}
+
+// SQLite has no native enum support, so enum-like fields are plain strings
+// validated in application code (see lib/constants.ts). This also keeps the
+// schema portable to Postgres without change.
+
+model Project {
+  id             String        @id @default(cuid())
+  ownerId        String
+  owner          User          @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  name           String
+  industry       String
+  country        String
+  region         String?
+  city           String?
+  targetCustomer String?
+  objective      String?
+  businessType   String?
+  competitorsRaw String?
+  budget         Float?
+  investmentSize Float?
+  currency       String        @default("USD")
+  researchDepth  String        @default("PROFESSIONAL")
+
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  score           Score?
+  competitors     Competitor[]
+  sections        ReportSection[]
+}
+
+model Score {
+  id                     String   @id @default(cuid())
+  projectId              String   @unique
+  project                Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  overall                Int
+  opportunity            Int
+  risk                   Int
+  competition            Int
+  demand                 Int
+  profitability          Int
+  investmentRecommendation String
+  breakdown              String   // JSON-encoded explanation of how each score was derived
+  updatedAt              DateTime @updatedAt
+}
+
+model Competitor {
+  id             String   @id @default(cuid())
+  projectId      String
+  project        Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  name           String
+  description    String?
+  marketSharePct Float?
+  pricingModel   String?
+  strengths      String?
+  weaknesses     String?
+  website        String?
+  createdAt      DateTime @default(now())
+}
+
+model ReportSection {
+  id               String      @id @default(cuid())
+  projectId        String
+  project          Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  type             String      // one of SECTION_TYPES in lib/constants.ts
+  content          String      // JSON-encoded content, shape depends on `type`
+  source           String      // e.g. "AI-generated", "World Bank Open Data", "User input"
+  confidenceScore  Int?        // 0-100, null when not AI-generated
+  generatedByAI    Boolean     @default(false)
+
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  @@unique([projectId, type])
+}
+
+model DataSourceConnection {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  provider  String
+  apiKey    String?
+  status    String   @default("NOT_CONFIGURED") // CONNECTED | NOT_CONFIGURED
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, provider])
+}
